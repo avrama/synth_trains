@@ -16,7 +16,7 @@
 #                       how many independent trains and
 #                       how many dependent trains.
 #                    correlation is actually R^2 - so if sqrt(corr_val)=0.5, then half of trains are independent
-#         6: for corr type 1 - shift parameter, for type 2, amount of corrlation
+#         6: for corr type 1 - shift of entire train, for type 2 - corrlation^2, for type 3 - jitter
 #
 # Future changes:
 # incorporate stuff from InputwithCorrelation2.py: within neuron correlation
@@ -131,6 +131,12 @@ if fname !='0':
     np.savez(fname, spikeTime=spikeTime)
 else:
     plt.ion()
+    plt.figure()
     plt.eventplot(spikeTime)
+    if corr>0:
+        corval=str(args[6])
+    else:
+        corval='0'
+    plt.suptitle('freq '+str(Freq)+' corr type '+str(corr)+' value '+ corval)
 
     
