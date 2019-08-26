@@ -156,13 +156,24 @@ def spikes_inhomPois(num_cells,mean_isi,min_isi,max_time,intraburst,interburst,f
     return spikesInhomPois, info,ISI,time_samp,tdep_rate
 
 _FUNCTIONS = {
+    #This is not used, because poisson and normal not so good
     'exp': spikes_exp,
-    'lognorm': spikes_lognorm
+    'poisson': spikes_poisson,
+    'normal': spikes_normal
 }
 
 def make_trains(num_trains,isi,samples,maxTime,train_type):
-    func=_FUNCTIONS[train_type]
-    spikes,info,ISI=func(num_trains,isi,samples,maxTime)
+    print('make trains', train_type)
+    if train_type.startswith('lognorm'):
+        distr_info=train_type.split()
+        print('distribution',distr_info)
+        intraburst=float(distr_info[1])
+        train_type=distr_info[0]
+        spikes,info,ISI=spikes_lognorm(num_trains,isi,samples,maxTime,intraburst)
+    else:
+        #func=_FUNCTIONS[train_type]
+        #spikes,info,ISI=func(num_trains,isi,samples,maxTime)
+        spikes,info,ISI=spikes_exp(num_trains,isi,samples,maxTime)
     return spikes,info,ISI
 
 '''
