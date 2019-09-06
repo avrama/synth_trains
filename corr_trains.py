@@ -23,7 +23,7 @@
 # Future changes:
 # incorporate stuff from InputwithCorrelation2.py: within neuron correlation
 # AmpaInput2.py: motor and sensory upstates
-#Str=num trains:100,freq:4.1,max time: 20.0,distr: exp, corr: 3, jitter:.01,.03,.1,.3
+#Str=num trains:100,freq:4.1,max time: 20.0,distr: exp, corr: 3, jitter:.01,.03,.1,.3, or corr 2, value=0.5,0.64,0.81, 0.9
 #
 from __future__ import print_function, division
 import sys
@@ -37,6 +37,11 @@ ms_per_sec=1000
 ###############################################################################
 #parameters for creating fake spike trains. Replace with argparser
 ###############################################################################
+#examples
+#python3 corr_trains.py str_exp_corr0.5,100,4.1,20,exp,3 0.03,15
+#ARGS="str_exp_corr0.5,100,4.1,20,exp,2 0.5,15"
+#exec(open('corr_trains.py').read())
+
 try:
     args = ARGS.split(",")
     print("ARGS =", ARGS, "commandline=", args)
@@ -156,7 +161,7 @@ for setnum in range(num_sets):
         plt.figure()
         plt.eventplot(spikeTime)
         if corr_type>0:
-            corval=str(args[6])
+            corval=str(args[5])
         else:
             corval='0'
         plt.suptitle('freq '+str(Freq)+' corr type '+str(corr_type)+' value '+ corval+' trial '+str(setnum))
