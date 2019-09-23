@@ -126,9 +126,11 @@ def train(cellnum,mean_isi,burstinterval,burstisi,min_isi,max_time,noise):
         time = times[-1] if len(times) else time
 
 #Inhomogeneous Poisson process.  Could be replaced by elephant function: inhomogeneous_poisson_process
-def spikes_inhomPois(num_cells,mean_isi,min_isi,max_time,intraburst,interburst,freq_dependence):
-    samples_per_cycle=20
-    freq_sampling_duration=(1.0/interburst)/samples_per_cycle
+def spikes_inhomPois(num_cells,mean_isi,min_isi,max_time,intraburst,interburst,freq_dependence,theta=None):
+    samples_per_cycle=10
+    if theta:
+        maxfreq=max(interburst,theta)
+    freq_sampling_duration=(1.0/maxfreq)/samples_per_cycle
     spikesInhomPois=[]
     time_samp=np.arange(0,max_time,freq_sampling_duration)
     #sinusoidal modulation in isi, interburst is 1/sin freq:
@@ -137,8 +139,14 @@ def spikes_inhomPois(num_cells,mean_isi,min_isi,max_time,intraburst,interburst,f
     #sinusoidal modulation in firing rate gives mean number of spikes more similar to exp
     #Also, fft is more unimodal
     tdep_rate=(1/mean_isi)*(1+freq_dependence*np.sin(2*np.pi*time_samp/interburst))
-    smallest_isi=1/np.max(tdep_rate)
-
+    if theta:
+        #This doubles the envelope frequency!
+        thetaosc=np.sin(2*np.pi*theta*time_samp)
+        tdep_rate=(1/mean_isi)*(1+freq_dependence*np.sin(2*np.pi*time_samp/interburst)*thetaosc)
+        #print('theta',theta,tdep_rate[0:80])
+    maxrate=np.max(tdep_rate)
+    smallest_isi=1/maxrate
+    
     for cellnum in range(num_cells):
         spike_superset=exp_events(smallest_isi,max_time,int(extra_time*max_time/smallest_isi),min_isi)
         if len(spike_superset):
@@ -146,7 +154,7 @@ def spikes_inhomPois(num_cells,mean_isi,min_isi,max_time,intraburst,interburst,f
             #find firing rate bin corresponding to spike time
             rate_bin = [np.argmin(np.abs(time_samp-spk)) for spk in spike_superset]
              #normalized spike probability
-            prob_spike=tdep_rate[rate_bin]/np.max(tdep_rate)
+            prob_spike=tdep_rate[rate_bin]/maxrate
             #retain spikes based on spike probability and random number
             spikesInhomPois.append(spike_superset[spike_rn<prob_spike])
         else:

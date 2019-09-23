@@ -6,6 +6,7 @@ Created on Mon Jan  7 13:25:55 2019
 """
 import numpy as np
 import spike_train_utils as stu
+import sig_filter as filt
 from matplotlib import pyplot as plt
 
 ms_per_sec=1000
@@ -22,23 +23,27 @@ cell_type_dict={}
 #freq_dependence is fraction of mean_isi modulated sinusoidally, [0,1.0), but > 0.9 doesn't work with min_isi=2 ms
 #noise used in burst train generation
 
-cell_type_dict['SPN']={'num_cells':100,'mean_isi': 1.0/4.1,'interburst': 4.6,'intraburst': (0.34/(6.9+1)),'noise':0.005,'freq_dependence':0.95}
-cell_type_dict['GPe']={'num_cells':35,'mean_isi': 1/29.3,'interburst': 0.5,'intraburst': 0.025,'noise':0.005,'freq_dependence':0.95}
-cell_type_dict['STN']={'num_cells':200,'mean_isi': 1/18.,'interburst': 1.5,'intraburst': 0.025,'noise':0.005,'freq_dependence':0.95}
-#SPN values:
+cell_type_dict['str']={'num_cells':100,'mean_isi': 1.0/4.1,'interburst': 5.0,'intraburst': (0.34/(6.9+1)),'noise':0.005,'freq_dependence':0.95}
+#cell_type_dict['GPe']={'num_cells':35,'mean_isi': 1/29.3,'interburst': 0.5,'intraburst': 0.025,'noise':0.005,'freq_dependence':0.95}
+#cell_type_dict['STN']={'num_cells':200,'mean_isi': 1/18.,'interburst': 1.5,'intraburst': 0.025,'noise':0.005,'freq_dependence':0.95}
+#theta frequencies for creating doubly oscillatory trains
+DMfreq=10.5 #carrier=1/5
+DLfreq=5.0 #carrier=1/1.8
+thetafreq=DLfreq
+#str values:
 #mean_isi of 1/2.1 from?
 #intratrain isi from KitaFrontSynapticNeurosci5-42
-#intraburst: 0.01 is mode from KitaFrontSynapticNeurosci5-42, 0.02 is fastest observed SPN firing frequency, 
+#intraburst: 0.01 is mode from KitaFrontSynapticNeurosci5-42, 0.02 is fastest observed str firing frequency, 
 #GPe values:
 #mean_isi from KitaFrontSynapticNeurosci5-42
 #interburst is guestimate; intraburst is mode from KitaFrontSynapticNeurosci5-42
 #STN values:
 #mean_isi from WilsonNeurosci198-54, mean freq is 18-28
 #intraburst: same as GPe until find better estimate
-#SPN interburst of 4.6 sec gives ~0.22 Hz, STN interburst of 1.5 --> 0.66 Hz, GPe interburst of 0.5 sec --> 2 Hz
+#str interburst of 4.6 sec gives ~0.22 Hz, STN interburst of 1.5 --> 0.66 Hz, GPe interburst of 0.5 sec --> 2 Hz
 
 #which method I think is better
-best_method={'SPN': 'exp', 'GPe':'lognorm','STN':'lognorm'}
+best_method={'str': 'exp', 'GPe':'lognorm','STN':'lognorm'}
 for cell_type,params in cell_type_dict.items():
     info={} #dictionary for storing min,max,mean of ISI and CV
     ISI={}
@@ -57,12 +62,12 @@ for cell_type,params in cell_type_dict.items():
                   for cell in range(params['num_cells'])]
     ISI['burst2'],CV_burst2,info['burst2']=stu.summary(spikesBurst2,max_time,method='burst2')
     
-    spikesInhomPois,info['InhomPoisson'],ISI['InhomPoisson'],time_samp,tdep_rate=stu.spikes_inhomPois(params['num_cells'],params['mean_isi'],min_isi,max_time,params['intraburst'],params['interburst'],params['freq_dependence'])
+    spikesInhomPois,info['InhomPoisson'],ISI['InhomPoisson'],time_samp,tdep_rate=stu.spikes_inhomPois(params['num_cells'],params['mean_isi'],min_isi,max_time,params['intraburst'],params['interburst'],params['freq_dependence'],theta=DMfreq)
     #
     #### only save the data in spike_sets
     spike_sets={'lognorm':spikeslogNorm,'exp': spikesExp,'burst':spikesBurst,'norm':spikesNormal}
     #,'InhomPoisson':spikesInhomPois,'Burst2': spikesBurst2,'burst':spikesBurst,'norm':spikesNormal,'poisson':spikesPoisson}
-    spike_sets={'lognorm':spikeslogNorm,'InhomPoisson':spikesInhomPois,'exp': spikesExp}
+    spike_sets={'InhomPoisson':spikesInhomPois}
     #
     ####################################################################
     ###### Plotting and output
@@ -70,7 +75,8 @@ for cell_type,params in cell_type_dict.items():
     #
     if savedata:
         for method in spike_sets.keys():
-            fname=cell_type+'_'+method+'_freq'+str(np.round(1/params['mean_isi']))+'.npz'
+            fname=cell_type+'_'+method+'_freq'+str(np.round(1/params['mean_isi']))+'_osc'+str(np.round(params['interburst'],1))+'_theta'+str(np.round(thetafreq))+'.npz'
+            print('saving data to', fname)
             np.savez(fname, spikeTime=spike_sets[method], info=info[method])
     else:
         ################# histogram of ISIs ########################3
@@ -82,22 +88,32 @@ for cell_type,params in cell_type_dict.items():
         for method in spike_sets.keys():
             hists[method],tmp=np.histogram(stu.flatten(ISI[method]),bins=bins,range=min_max)
             #recalculate histogram for inhomogeneous Poisson
-        hist_IP,tmp=np.histogram(stu.flatten(spikesInhomPois),bins=bins_IP)
+        time_hist_IP,tmp=np.histogram(stu.flatten(spikesInhomPois),bins=bins_IP)
         #
         ########## plot Inhomogeneous Poisson, and also fft
+        ###### Extract low frequency envelope of signal 
+        data=time_hist_IP#tdep_rate
+        meandata=np.mean(data)
+        newdata=np.abs(data-meandata)
+        fft_env=np.fft.rfft(newdata)
+        cutoff=3
+        fft_lowpas=filt.butter_lowpass_filter(fft_env, cutoff, 1/time_samp[1], order=6)
         plot_bins=[(bins_IP[i]+bins_IP[i+1])/2 for i in range(len(bins_IP)-1)]
         plt.ion()
         plt.figure()
         plt.title(cell_type+' time histogram of inhomogenous Poisson')
-        plt.bar(plot_bins,hist_IP,width=hist_dt)
-        plt.plot(time_samp,np.max(hist_IP)*tdep_rate/np.max(tdep_rate),'r')
+        plt.bar(plot_bins,time_hist_IP,width=hist_dt)
+        plt.plot(time_samp,np.max(time_hist_IP)*tdep_rate/np.max(tdep_rate),'r')
+        plt.plot(time_samp,newdata,'k')
         plt.xlabel('time')
         plt.ylabel('num spikes')
+        #plot FFT of histogram
         plt.figure()
         plt.title(cell_type+' fft of inhomogenous Poisson')
-        fft_IP=np.fft.rfft(hist_IP)
+        fft_IP=np.fft.rfft(time_hist_IP)
         xf = np.linspace(0.0, 1.0/(2.0*bins_IP[1]), len(fft_IP))
         plt.plot(xf[1:],2/len(fft_IP)*np.abs(fft_IP[1:]))
+        plt.plot(xf[1:],2/len(fft_lowpas)*np.abs(fft_lowpas[1:]))
         ######### plot raster and histogram for other spike trains   
         colors=plt.get_cmap('viridis')
         #colors=plt.get_cmap('gist_heat')
