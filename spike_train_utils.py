@@ -98,7 +98,7 @@ def spikes_lognorm(num_cells,mean_isi,min_isi,max_time,intraburst):
 #method5 from Corr_plot_v2_1.py: use exponential distribution twice, generates a single train
 #ISI has high peak and long tailed ISI distribution.  These are exponentially distributed bursts
 #good method for bursty data:  
-#higher intertrainisi produces lower CV. itisi=0.1 --> 1.0; iti=0.3-->0.7; itisi=0.03-->1.4-1.6
+#higher intertrain isi produces lower CV. itisi=0.1 --> 1.0; iti=0.3-->0.7; itisi=0.03-->1.4-1.6
 #lower noise = higher CV
 def train(cellnum,mean_isi,burstinterval,burstisi,min_isi,max_time,noise):
     num_spikes_per_cell = int(max_time/mean_isi)
@@ -130,6 +130,8 @@ def spikes_inhomPois(num_cells,mean_isi,min_isi,max_time,intraburst,interburst,f
     samples_per_cycle=10
     if theta:
         maxfreq=max(interburst,theta)
+    else:
+        maxfreq=1.0/interburst
     freq_sampling_duration=(1.0/maxfreq)/samples_per_cycle
     spikesInhomPois=[]
     time_samp=np.arange(0,max_time,freq_sampling_duration)
@@ -138,12 +140,12 @@ def spikes_inhomPois(num_cells,mean_isi,min_isi,max_time,intraburst,interburst,f
     #tdep_rate=1/(mean_isi*(1+freq_dependence*np.sin((2*np.pi/interburst)*time_samp)))
     #sinusoidal modulation in firing rate gives mean number of spikes more similar to exp
     #Also, fft is more unimodal
-    tdep_rate=(1/mean_isi)*(1+freq_dependence*np.sin(2*np.pi*time_samp/interburst))
+    tdep_rate=(1./mean_isi)*(1+freq_dependence*np.sin(2*np.pi*time_samp/interburst))
     if theta:
         #This doubles the envelope frequency!
         thetaosc=np.sin(2*np.pi*theta*time_samp)
-        tdep_rate=(1/mean_isi)*(1+freq_dependence*np.sin(2*np.pi*time_samp/interburst)*thetaosc)
-        #print('theta',theta,tdep_rate[0:80])
+        tdep_rate=(1./mean_isi)*(1+freq_dependence*np.sin(2*np.pi*time_samp/interburst)*thetaosc)
+        print('theta',theta,tdep_rate[0:20])
     maxrate=np.max(tdep_rate)
     smallest_isi=1/maxrate
     
