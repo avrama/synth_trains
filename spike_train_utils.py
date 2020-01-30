@@ -126,14 +126,34 @@ def train(cellnum,mean_isi,burstinterval,burstisi,min_isi,max_time,noise):
         time = times[-1] if len(times) else time
 
 #Inhomogeneous Poisson process.  Could be replaced by elephant function: inhomogeneous_poisson_process
-def spikes_inhomPois(num_cells,mean_isi,min_isi,max_time,intraburst,interburst,freq_dependence,theta=None):
+def spikes_inhomPois(numcells,tdep_rate,time_samp,min_isi,IP_type='InhomPoisson'):
+    max_time=time_samp[-1]
+    maxrate=np.max(tdep_rate)
+    smallest_isi=1/maxrate
+    spikes=[]
+    for cellnum in range(numcells):
+        spike_superset=exp_events(smallest_isi,max_time,int(extra_time*max_time/smallest_isi),min_isi)
+        if len(spike_superset):
+            spike_rn=np.random.rand(len(spike_superset))
+            #find firing rate bin corresponding to spike time
+            rate_bin = [np.argmin(np.abs(time_samp-spk)) for spk in spike_superset]
+             #normalized spike probability
+            prob_spike=tdep_rate[rate_bin]/maxrate
+            #retain spikes based on spike probability and random number
+            spikes.append(spike_superset[spike_rn<prob_spike])
+        else:
+            print('uh oh, no spikes generated')
+            spikes.append([])
+    ISI,CV_IP,info=summary(spikes,max_time,IP_type)
+    return spikes, info,ISI
+
+def osc(num_cells,mean_isi,min_isi,max_time,intraburst,interburst,freq_dependence,theta=None,IP_type='osc'):
     samples_per_cycle=10
     if theta:
         maxfreq=max(interburst,theta)
     else:
         maxfreq=1.0/interburst
     freq_sampling_duration=(1.0/maxfreq)/samples_per_cycle
-    spikesInhomPois=[]
     time_samp=np.arange(0,max_time,freq_sampling_duration)
     #sinusoidal modulation in isi, interburst is 1/sin freq:
     #this gives a mean_freq ~2x 1/mean_isi - not good
@@ -144,26 +164,33 @@ def spikes_inhomPois(num_cells,mean_isi,min_isi,max_time,intraburst,interburst,f
     if theta:
         #This doubles the envelope frequency!
         thetaosc=np.sin(2*np.pi*theta*time_samp)
-        tdep_rate=(1./mean_isi)*(1+freq_dependence*np.sin(2*np.pi*time_samp/interburst)*thetaosc)
+        #4.5 multiplier increases number of spikes to that for exp and log norm
+        #0.2 subtraction produces silent periods between "up" states, probably want these less silent for in vivo
+        tdep_rate=(4.5/mean_isi)*((1+freq_dependence*np.sin(2*np.pi*time_samp/interburst))*thetaosc-0.2)
         print('theta',theta,tdep_rate[0:20])
-    maxrate=np.max(tdep_rate)
-    smallest_isi=1/maxrate
-    
-    for cellnum in range(num_cells):
-        spike_superset=exp_events(smallest_isi,max_time,int(extra_time*max_time/smallest_isi),min_isi)
-        if len(spike_superset):
-            spike_rn=np.random.rand(len(spike_superset))
-            #find firing rate bin corresponding to spike time
-            rate_bin = [np.argmin(np.abs(time_samp-spk)) for spk in spike_superset]
-             #normalized spike probability
-            prob_spike=tdep_rate[rate_bin]/maxrate
-            #retain spikes based on spike probability and random number
-            spikesInhomPois.append(spike_superset[spike_rn<prob_spike])
-        else:
-            print('uh oh, no spikes generated')
-            spikesInhomPois.append([])
-    ISI,CV_IP,info=summary(spikesInhomPois,max_time,'InhomPoisson')
-    return spikesInhomPois, info,ISI,time_samp,tdep_rate
+    #
+    spikes, info,ISI=spikes_inhomPois(num_cells,tdep_rate,time_samp,min_isi)
+    return spikes, info,ISI,time_samp,tdep_rate
+
+def spikes_ramp(num_cells,min_isi,max_time,min_freq,max_freq,start_time,ramp_duration):
+    samples_per_cycle=10
+    freq_sampling_duration=(1.0/max_freq)/samples_per_cycle
+    time_samp=np.arange(0,max_time,freq_sampling_duration)
+    tdep_rate=min_freq+max_freq*(time_samp-start_time)*(time_samp>start_time)*(time_samp<(start_time+ramp_duration))
+    #
+    spikes, info,ISI=spikes_inhomPois(num_cells,tdep_rate,time_samp,min_isi,IP_type='ramp')
+    return spikes, info,ISI,time_samp,tdep_rate
+
+def spikes_pulse(num_cells,min_isi,max_time,min_freq,max_freq,start_list,duration):
+    samples_per_cycle=10
+    freq_sampling_duration=(1.0/max_freq)/samples_per_cycle
+    time_samp=np.arange(0,max_time,freq_sampling_duration)
+    tdep_rate=min_freq*np.ones(len(time_samp))
+    for startt in start_list:
+        tdep_rate=tdep_rate+max_freq*(time_samp>startt)*(time_samp<(startt+duration))
+    #
+    spikes, info,ISI=spikes_inhomPois(num_cells,tdep_rate,time_samp,min_isi,IP_type='pulses')
+    return spikes, info,ISI,time_samp,tdep_rate
 
 _FUNCTIONS = {
     #This is not used, because poisson and normal not so good
