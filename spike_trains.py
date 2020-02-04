@@ -17,14 +17,15 @@ max_time=5 #sec #20
 min_isi=0.002
 #these should go in dictionary?
 ramp_start=2
-ramp_duration=2
+ramp_duration=0.3 #fast ~0.3, slow ~0.5
 min_freq=3
 max_freq=16
 pulse_start=[2,2.2]
 pulse_duration=0.05
 
-save_spikes={'ctx': ['exp','ramp'], 'STN': ['pulse']}
-save_spikes={} #if empty, will not save data
+save_spikes={'Ctx': ['exp','ramp', 'osc'], 'STN': ['pulse']}
+#save_spikes={'Ctx': ['ramp']}
+#save_spikes={} #if empty, will not save data
 cell_type_dict={}
 #isi, interburst and intraburst units are seconds
 #interburst: interval between bursts; 1/interburst is frequency used for sinusoidally varying spike trains
@@ -34,7 +35,7 @@ cell_type_dict={}
 #cell_type_dict['str']={'num_cells':100,'mean_isi': 1.0/4.1,'interburst': 1/0.2,'intraburst': 0.19,'noise':0.005,'freq_dependence':0.95}
 #cell_type_dict['GPe']={'num_cells':35,'mean_isi': 1/29.3,'interburst': 0.5,'intraburst': 0.027,'noise':0.005,'freq_dependence':0.95}
 cell_type_dict['STN']={'num_cells':2000,'mean_isi': 1/18.,'interburst': 1.5,'intraburst': 0.044,'noise':0.005,'freq_dependence':0.95}
-cell_type_dict['Ctx']={'num_cells':2000,'mean_isi': 1/10.,'interburst': 1.5,'intraburst': 0.044,'noise':0.005,'freq_dependence':0.95}
+cell_type_dict['Ctx']={'num_cells':10000,'mean_isi': 1/10.,'interburst': 1.5,'intraburst': 0.044,'noise':0.005,'freq_dependence':0.95}
 #using intraburst of 0.015 gives mean isi too small and mean freq too high!
 #cell_type_dict['GPe']={'num_cells':35,'mean_isi': 1/29.3,'interburst': 1/20.,'intraburst': 0.015,'noise':0.005,'freq_dependence':0.5}
 #cell_type_dict['STN']={'num_cells':200,'mean_isi': 1/18.,'interburst': 1/20.,'intraburst': 0.015,'noise':0.005,'freq_dependence':0.5}
@@ -88,11 +89,15 @@ for cell_type,params in cell_type_dict.items():
     #
     if len(save_spikes):
         for method in save_spikes[cell_type]:
-            fname=cell_type+str(cell_type_dict[celltype]['num_cells'])+'_'+method+'_freq'+str(np.round(1/params['mean_isi']))
+            fname=cell_type+str(cell_type_dict[cell_type]['num_cells'])+'_'+method+'_freq'+str(np.round(1/params['mean_isi']))
             if method=='osc':
                 fname=fname+'_osc'+str(np.round(1.0/params['interburst'],1))
                 if thetafreq:
                     fname=fname+'_theta'+str(np.round(thetafreq))
+            if method=='ramp':
+                fname=cell_type+str(cell_type_dict[cell_type]['num_cells'])+'_'+method+str(ramp_duration)+'_freq'+str(min_freq)+'_'+str(max_freq)
+            if method=='pulse':
+                fname=cell_type+str(cell_type_dict[cell_type]['num_cells'])+'_'+method+'_freq'+str(min_freq)+'_'+str(max_freq)
             print('saving data to', fname)
             np.savez(fname+'.npz', spikeTime=spikes[method], info=info[method])
     else:
