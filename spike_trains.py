@@ -17,14 +17,12 @@ max_time=5 #sec #20
 min_isi=0.002
 #these should go in dictionary?
 ramp_start=2
-ramp_duration=0.3 #fast ~0.3, slow ~0.5
-min_freq=3
-max_freq=16
+ramp_duration=0.5 #fast ~0.3, slow ~0.5
 pulse_start=[2,2.2]
-pulse_duration=0.05
+pulse_duration=0.10
 
-save_spikes={'Ctx': ['exp','ramp', 'osc'], 'STN': ['pulse']}
-#save_spikes={'Ctx': ['ramp']}
+save_spikes={'Ctx': ['exp','osc'], 'STN': ['pulse']}
+save_spikes={'STN': ['pulse']}
 #save_spikes={} #if empty, will not save data
 cell_type_dict={}
 #isi, interburst and intraburst units are seconds
@@ -34,8 +32,8 @@ cell_type_dict={}
 
 #cell_type_dict['str']={'num_cells':100,'mean_isi': 1.0/4.1,'interburst': 1/0.2,'intraburst': 0.19,'noise':0.005,'freq_dependence':0.95}
 #cell_type_dict['GPe']={'num_cells':35,'mean_isi': 1/29.3,'interburst': 0.5,'intraburst': 0.027,'noise':0.005,'freq_dependence':0.95}
-cell_type_dict['STN']={'num_cells':2000,'mean_isi': 1/18.,'interburst': 1.5,'intraburst': 0.044,'noise':0.005,'freq_dependence':0.95}
-cell_type_dict['Ctx']={'num_cells':10000,'mean_isi': 1/10.,'interburst': 1.5,'intraburst': 0.044,'noise':0.005,'freq_dependence':0.95}
+cell_type_dict['STN']={'num_cells':500,'mean_isi': 1,'interburst': 1.5,'intraburst': 0.025,'noise':0.005,'freq_dependence':0.95,'max_freq':56}
+#cell_type_dict['Ctx']={'num_cells':10000,'mean_isi': 1/5.,'interburst': 1.5,'intraburst': 0.044,'noise':0.005,'freq_dependence':0.95,'max_freq':30}
 #using intraburst of 0.015 gives mean isi too small and mean freq too high!
 #cell_type_dict['GPe']={'num_cells':35,'mean_isi': 1/29.3,'interburst': 1/20.,'intraburst': 0.015,'noise':0.005,'freq_dependence':0.5}
 #cell_type_dict['STN']={'num_cells':200,'mean_isi': 1/18.,'interburst': 1/20.,'intraburst': 0.015,'noise':0.005,'freq_dependence':0.5}
@@ -80,8 +78,8 @@ for cell_type,params in cell_type_dict.items():
     ISI['burst2'],CV_burst2,info['burst2']=stu.summary(spikesBurst2,max_time,method='burst2')
     '''
     spikes['osc'],info['osc'],ISI['osc'],time_samp['osc'],tdep_rate['osc']=stu.osc(params['num_cells'],params['mean_isi'],min_isi,max_time,params['intraburst'],params['interburst'],params['freq_dependence'])
-    spikes['ramp'],info['ramp'],ISI['ramp'],time_samp['ramp'],tdep_rate['ramp']=stu.spikes_ramp(params['num_cells'],min_isi,max_time,min_freq,max_freq,ramp_start,ramp_duration)
-    spikes['pulse'],info['pulse'],ISI['pulse'],time_samp['pulse'],tdep_rate['pulse']=stu.spikes_pulse(params['num_cells'],min_isi,max_time,min_freq,max_freq,pulse_start,pulse_duration)
+    spikes['ramp'],info['ramp'],ISI['ramp'],time_samp['ramp'],tdep_rate['ramp']=stu.spikes_ramp(params['num_cells'],min_isi,max_time,1/params['mean_isi'],params['max_freq'],ramp_start,ramp_duration)
+    spikes['pulse'],info['pulse'],ISI['pulse'],time_samp['pulse'],tdep_rate['pulse']=stu.spikes_pulse(params['num_cells'],min_isi,max_time,1/params['mean_isi'],params['max_freq'],pulse_start,pulse_duration)
     #
     ####################################################################
     ###### Plotting and output
@@ -95,9 +93,9 @@ for cell_type,params in cell_type_dict.items():
                 if thetafreq:
                     fname=fname+'_theta'+str(np.round(thetafreq))
             if method=='ramp':
-                fname=cell_type+str(cell_type_dict[cell_type]['num_cells'])+'_'+method+str(ramp_duration)+'_freq'+str(min_freq)+'_'+str(max_freq)
+                fname=fname+'_'+str(params['max_freq'])+'dur'+str(ramp_duration)
             if method=='pulse':
-                fname=cell_type+str(cell_type_dict[cell_type]['num_cells'])+'_'+method+'_freq'+str(min_freq)+'_'+str(max_freq)
+                fname=fname+'_'+str(params['max_freq'])+'dur'+str(pulse_duration)
             print('saving data to', fname)
             np.savez(fname+'.npz', spikeTime=spikes[method], info=info[method])
     else:

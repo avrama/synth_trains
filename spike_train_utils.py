@@ -89,7 +89,7 @@ def spikes_lognorm(num_cells,mean_isi,min_isi,max_time,intraburst):
     for i in range(num_cells):
         isi = np.random.randn(num_spikes_per_cell)*sigma+mn
         newisi=np.exp(isi)
-        #print('lognorm',newisi)
+        #print('lognorm',sigma,mn,isi,newisi)
         spikes=np.cumsum(newisi[newisi>min_isi])
         spikeslogNorm.append(spikes[spikes<max_time])
     ISI,CV_lognorm,info=summary(spikeslogNorm,max_time,method='lognorm')
